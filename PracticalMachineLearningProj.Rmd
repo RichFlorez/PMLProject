@@ -1,0 +1,148 @@
+---
+title: "Practical Machine Learning Project"
+author: "Rich Florez"
+date: "1/8/2017"
+output: html_document
+---
+
+###Introduction###
+
+This analysis is being done for the Coursera Practical Machine Learning Course Project and is described as follows:
+
+Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+Data
+
+Source: http://groupware.les.inf.puc-rio.br/har
+
+Citation:
+
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+###Getting/Loading Data###
+
+```{r, echo=TRUE, error=FALSE, message=FALSE}
+
+#Packages needed for the analysis:
+library(lattice)
+library(ggplot2)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(e1071)
+
+#Download datasets from URL's
+trainingURL <-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+trainingData <- "./data/pml-training.csv"
+testData  <- "./data/pml-testing.csv"
+if (!file.exists("./data")) {
+  dir.create("./data")
+}
+if (!file.exists(trainingData)) {
+  download.file(trainingURL, destfile=trainingData, method="curl")
+}
+if (!file.exists(testData)) {
+  download.file(testURL, destfile=testData, method="curl")
+}
+
+#Read both raw dataset files
+trainingRaw <- read.csv("./data/pml-training.csv")
+testRaw <- read.csv("./data/pml-testing.csv")
+
+#Object dimensions of the raw training data (obsv/var)
+dim(trainingRaw)
+
+#Object dimensions of the raw test data (obsv/var)
+dim(testRaw)
+
+```
+
+###Cleaning/Slicing the Data###
+
+The raw data is first analyzed by figuring out how many observations are complete. Then N/A values are removed followed by the removal of dataset columns that don't contribute to the analysis.
+
+An overall seed value is chosen at random and the training data is sliced into a 70/30 split. Typically, a 60% Training, 20% Test & 20% Validation split is used, however since we are utilizing a predefined test dataset, I simply allocated the remaining 20% equally across both splits, resulting in a 70/30 split.
+
+```{r, echo=TRUE, error=FALSE, message=FALSE}
+
+#Prelim identification of complete observations in the training dataset
+sum(complete.cases(trainingRaw))
+
+#Training dataset cleaning
+trainingRaw <- trainingRaw[, colSums(is.na(trainingRaw)) == 0] #Remove N/A's 
+classe <- trainingRaw$classe
+trainingRemove <- grepl("^X|timestamp|window", names(trainingRaw))
+trainingRaw <- trainingRaw[, !trainingRemove]
+trainingClean <- trainingRaw[, sapply(trainingRaw, is.numeric)]
+
+#Test dataset cleaning
+testRaw <- testRaw[, colSums(is.na(testRaw)) == 0] #Remove N/A's
+trainingClean$classe <- classe
+testRemove <- grepl("^X|timestamp|window", names(testRaw))
+testRaw <- testRaw[, !testRemove]
+testClean <- testRaw[, sapply(testRaw, is.numeric)]
+
+#Data Slicing
+set.seed(32123) #Value chosen for reproducibility
+inTrain <- createDataPartition(trainingClean$classe, p=0.70, list=F) #Split Value 70/30
+trainingData <- trainingClean[inTrain, ]
+testData <- trainingClean[-inTrain, ]
+```
+
+###Random Forest Prediction###
+
+The Random Forest model utilizing a cross validation method was chosen for this analysis based on the lectures indicating its high level of accuracy, while trading off variability, bias & speed. The runtime of this analysis took approx ~ 10mins given that I chose to use a 7-fold cross validation method. 
+
+Per the lectures, a 2-fold cv, has less variance, but is highly bias (runtime ~ 6.5mins). In contrast, a 10-fold cv, would be less bias, but more variable (runtime ~ 13mins). I chose to use a 7-fold cv as a tradeoff between the two.
+
+```{r, echo=TRUE, error=FALSE, message=FALSE}
+
+#Random Forest model w/ 7-fold cross validation
+controlRF <- trainControl(method="cv", 7)
+modelRF <- train(classe ~ ., data=trainingData, method="rf", trControl=controlRF, ntree=250)
+modelRF
+
+#Prediction model on the test dataset
+predictRF <- predict(modelRF, testData)
+confusionMatrix(testData$classe, predictRF)
+
+#Accuracy/Kappa
+accuracy <- postResample(predictRF, testData$classe)
+accuracy
+
+#Out of Sample Error
+outSmplErr <- 1 - as.numeric(confusionMatrix(testData$classe, predictRF)$overall[1])
+outSmplErr
+
+```
+
+The accuracy of the Random Forest model is 99.30%, with an out-of-sample error of 0.69%. 
+
+###Random Forest Tree Figure###
+
+```{r, echo=TRUE, error=FALSE, message=FALSE}
+treeModel <- rpart(classe ~ ., data=trainingData, method="class")
+prp(treeModel)
+```
+
+###Test Data Results/Prediction###
+
+Random Forest model used to predict the values of the test dataset.
+
+```{r, echo=TRUE, error=FALSE, message=FALSE}
+result <- predict(modelRF, testClean[, -length(names(testClean))])
+result
+```
+

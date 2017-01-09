@@ -202,7 +202,7 @@ testData &lt;- trainingClean[-inTrain, ]</code></pre>
 </div>
 <div id="random-forest-prediction" class="section level3">
 <h3>Random Forest Prediction</h3>
-<p>The Random Forest model utilizing a cross validation method was chosen for ths analysis based on the lectures indicating it high level of accuracy, while trading off speed. Each iteration of this analysis took approx ~ 10mins to run given that I chose to use a 7-fold cross validation method.</p>
+<p>The Random Forest model utilizing a cross validation method was chosen for this analysis based on the lectures indicating its high level of accuracy, while trading off variability, bias &amp; speed. The runtime of this analysis took approx ~ 10mins given that I chose to use a 7-fold cross validation method.</p>
 <p>Per the lectures, a 2-fold cv, has less variance, but is highly bias (runtime ~ 6.5mins). In contrast, a 10-fold cv, would be less bias, but more variable (runtime ~ 13mins). I chose to use a 7-fold cv as a tradeoff between the two.</p>
 <pre class="r"><code>#Random Forest model w/ 7-fold cross validation
 controlRF &lt;- trainControl(method=&quot;cv&quot;, 7)
@@ -269,7 +269,7 @@ accuracy</code></pre>
 outSmplErr &lt;- 1 - as.numeric(confusionMatrix(testData$classe, predictRF)$overall[1])
 outSmplErr</code></pre>
 <pre><code>## [1] 0.006966865</code></pre>
-<p>The accuracy of the Random Forest model is 99.xx%, with an out-of-sample error of 0.xx%.</p>
+<p>The accuracy of the Random Forest model is 99.30%, with an out-of-sample error of 0.69%.</p>
 </div>
 <div id="random-forest-tree-figure" class="section level3">
 <h3>Random Forest Tree Figure</h3>
